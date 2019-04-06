@@ -6,13 +6,15 @@ using Discord.WebSocket;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
+using Microsoft.Extensions.DependencyInjection;
+using csharpi.Services;
 
 namespace csharpi
 {
     class Program
     {
-        private readonly DiscordSocketClient _client;
         private readonly IConfiguration _config;
+        private DiscordSocketClient _client;
 
         static void Main(string[] args)
         {
@@ -21,17 +23,6 @@ namespace csharpi
 
         public Program()
         {
-            _client = new DiscordSocketClient();
-
-            //Hook into log event and write it out to the console
-            _client.Log += LogAsync;
-
-            //Hook into the client ready event
-            _client.Ready += ReadyAsync;
-
-            //Hook into the message received event, this is how we handle the hello world example
-            _client.MessageReceived += MessageReceivedAsync;
-
             //Create the configuration
             var _builder = new ConfigurationBuilder()
                 .SetBasePath(AppContext.BaseDirectory)
@@ -41,12 +32,25 @@ namespace csharpi
 
         public async Task MainAsync()
         {
-            //This is where we get the Token value from the configuration file
-            await _client.LoginAsync(TokenType.Bot, _config["Token"]);
-            await _client.StartAsync();
+            using (var services = ConfigureServices())
+            {
+                var client = services.GetRequiredService<DiscordSocketClient>();
 
-            // Block the program until it is closed.
-            await Task.Delay(-1);
+                _client = client;
+                client.Log += LogAsync;
+                client.Ready += ReadyAsync;
+                
+                services.GetRequiredService<CommandService>().Log += LogAsync;
+
+                 //This is where we get the Token value from the configuration file
+                await client.LoginAsync(TokenType.Bot, _config["Token"]);
+                await client.StartAsync();
+
+                // Here we initialize the logic required to register our commands.
+                await services.GetRequiredService<CommandHandler>().InitializeAsync();
+
+                await Task.Delay(-1);
+            }
         }
 
         private Task LogAsync(LogMessage log)
@@ -60,18 +64,15 @@ namespace csharpi
             Console.WriteLine($"Connected as -> [{_client.CurrentUser}] :)");
             return Task.CompletedTask;
         }
-
-        //I wonder if there's a better way to handle commands (spoiler: there is :))
-        private async Task MessageReceivedAsync(SocketMessage message)
+        
+        private ServiceProvider ConfigureServices()
         {
-            //This ensures we don't loop things by responding to ourselves (as the bot)
-            if (message.Author.Id == _client.CurrentUser.Id)
-                return;
-
-            if (message.Content == ".hello")
-            {
-                await message.Channel.SendMessageAsync("world!");
-            }  
+            return new ServiceCollection()
+                .AddSingleton(_config)
+                .AddSingleton<DiscordSocketClient>()
+                .AddSingleton<CommandService>()
+                .AddSingleton<CommandHandler>()
+                .BuildServiceProvider();
         }
     }
 }
