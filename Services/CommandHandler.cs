@@ -11,6 +11,7 @@ namespace csharpi.Services
 {
     public class CommandHandler
     {
+        // setup fields to be set later in the constructor
         private readonly IConfiguration _config;
         private readonly CommandService _commands;
         private readonly DiscordSocketClient _client;
@@ -18,29 +19,30 @@ namespace csharpi.Services
 
         public CommandHandler(IServiceProvider services)
         {
+            // juice up the fields with these services
+            // since we passed the services in, we can use GetRequiredService to pass them into the fields set earlier
             _config = services.GetRequiredService<IConfiguration>();
             _commands = services.GetRequiredService<CommandService>();
             _client = services.GetRequiredService<DiscordSocketClient>();
             _services = services;
             
-            // Hook CommandExecuted to handle post-command-execution logic.
+            // take action when we execute a command
             _commands.CommandExecuted += CommandExecutedAsync;
 
-            // Hook MessageReceived so we can process each message to see
-            // if it qualifies as a command.
+            // take action when we receive a message (so we can process it, and see if it is a valid command)
             _client.MessageReceived += MessageReceivedAsync;
         }
 
         public async Task InitializeAsync()
         {
-            // Register modules that are public and inherit ModuleBase<T>.
+            // register modules that are public and inherit ModuleBase<T>.
             await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
         }
 
-        //This class is where the magic starts, and takes actions on receiving messages
+        // this class is where the magic starts, and takes actions upon receiving messages
         public async Task MessageReceivedAsync(SocketMessage rawMessage)
         {
-            // Ignore system messages, or messages from other bots
+            // ensures we don't process system/other bot messages
             if (!(rawMessage is SocketUserMessage message)) 
             {
                 return;
@@ -51,39 +53,44 @@ namespace csharpi.Services
                 return;
             }
 
-            // This value holds the offset where the prefix ends
+            // sets the argument position away from the prefix we set
             var argPos = 0;
 
-            //Get prefix from the configuration file
+            // get prefix from the configuration file
             char prefix = Char.Parse(_config["Prefix"]);
 
-            // Determine if the message has a valid prefix, adjust argPos
+            // determine if the message has a valid prefix, and adjust argPos based on prefix
             if (!(message.HasMentionPrefix(_client.CurrentUser, ref argPos) || message.HasCharPrefix(prefix, ref argPos))) 
             {
                 return;
             }
            
             var context = new SocketCommandContext(_client, message);
-            // Perform the execution of the command. In this method,
-            // the command service will perform precondition and parsing check
-            // then execute the command if one is matched.
+
+            // execute command if one is found that matches
             await _commands.ExecuteAsync(context, argPos, _services); 
-            // Note that normally a result will be returned by this format, but here
-            // we will handle the result in CommandExecutedAsync,
         }
 
         public async Task CommandExecutedAsync(Optional<CommandInfo> command, ICommandContext context, IResult result)
         {
-            // command is unspecified when there was a search failure (command not found); we don't care about these errors
+            // if a command isn't found, log that info to console and exit this method
             if (!command.IsSpecified)
+            {
+                System.Console.WriteLine($"Command failed to execute for [{context.User.Username}] <-> [{result.ErrorReason}]!");
                 return;
+            }
+                
 
-            // the command was successful, we don't care about this result, unless we want to log that a command succeeded.
+            // log success to the console and exit this method
             if (result.IsSuccess)
+            {
+                System.Console.WriteLine($"Command [{command.Value.Name}] executed for -> [{context.User.Username}]");
                 return;
+            }
+                
 
-            // the command failed, let's notify the user that something happened.
-            await context.Channel.SendMessageAsync($"error: {result}");
+            // failure scenario, let's let the user know
+            await context.Channel.SendMessageAsync($"Sorry, {context.User.Username}... something went wrong -> [{result}]!");
         }        
     }
 }
