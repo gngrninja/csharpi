@@ -3,25 +3,33 @@ using Discord.Commands;
 using Discord.WebSocket;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using System;
 
 namespace csharpi.Services
 {
     public class LoggingService
     {
+
+        // declare the fields used later in this class
         private readonly ILogger _logger;
         private readonly DiscordSocketClient _discord;
         private readonly CommandService _commands;
 
-        public LoggingService(ILogger<LoggingService> logger, DiscordSocketClient discord, CommandService commands)
+        public LoggingService(IServiceProvider services)
         { 
-            _discord = discord;
-            _commands = commands;
-            _logger = logger;
+            // get the services we need via DI, and assign the fields declared above to them
+            _discord = services.GetRequiredService<DiscordSocketClient>(); 
+            _commands = services.GetRequiredService<CommandService>();
+            _logger = services.GetRequiredService<ILogger<LoggingService>>();
+
+            // hook into these events with the methods provided below
             _discord.Ready += OnReadyAsync;
             _discord.Log += OnLogAsync;
             _commands.Log += OnLogAsync;
         }
 
+        // this method executes on the bot being connected/ready
         public Task OnReadyAsync()
         {
             _logger.LogInformation($"Connected as -> [{_discord.CurrentUser}] :)");
@@ -29,6 +37,7 @@ namespace csharpi.Services
             return Task.CompletedTask;
         }
 
+        // this method switches out the severity level from Discord.Net's API, and logs appropriately
         public Task OnLogAsync(LogMessage msg)
         { 
             string logText = $"{msg.Source}: {msg.Exception?.ToString() ?? msg.Message}";
