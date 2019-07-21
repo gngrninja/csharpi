@@ -2,7 +2,7 @@
 
 This repository is intended for use with my blog series [C# Discord Bot on a Raspberry Pi](https://www.gngrninja.com/code/2019/3/10/c-discord-bot-on-raspberry-pi-simple-bot-with-config-file). 
 
-## This branch's correlating blog post is [Adding Logging](https://www.gngrninja.com/code/2019/4/1/c-discord-bot-command-handling).
+## This branch's correlating blog post is [Adding Logging](https://www.gngrninja.com/code/2019/7/19/c-discord-bot-logging-all-the-things).
 
 Whether or not you use it to follow along with the posts, you can use it to learn how to make a C# Discord bot, and of course the Raspberry Pi part is completely optional.
 
