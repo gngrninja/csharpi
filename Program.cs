@@ -5,9 +5,11 @@ using Discord.Commands;
 using Discord.WebSocket;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using csharpi.Services;
+using System.Linq;
+using Serilog;
 
 namespace csharpi
 {
@@ -16,9 +18,19 @@ namespace csharpi
         // setup our fields we assign later
         private readonly IConfiguration _config;
         private DiscordSocketClient _client;
+        private static string _logLevel;
 
-        static void Main(string[] args)
+        static void Main(string[] args = null)
         {
+            if (args.Count() != 0)
+            {
+                _logLevel = args[0];
+            } 
+            Log.Logger = new LoggerConfiguration()
+                .WriteTo.File("logs/csharpi.log", rollingInterval: RollingInterval.Day)
+                .WriteTo.Console()
+                .CreateLogger();
+
             new Program().MainAsync().GetAwaiter().GetResult();
         }
 
@@ -44,9 +56,7 @@ namespace csharpi
                 _client = client;
 
                 // setup logging and the ready event
-                client.Log += LogAsync;
-                client.Ready += ReadyAsync;
-                services.GetRequiredService<CommandService>().Log += LogAsync;
+                services.GetRequiredService<LoggingService>();
 
                 // this is where we get the Token value from the configuration file, and start the bot
                 await client.LoginAsync(TokenType.Bot, _config["Token"]);
@@ -78,12 +88,48 @@ namespace csharpi
             // we can add types we have access to here, hence adding the new using statement:
             // using csharpi.Services;
             // the config we build is also added, which comes in handy for setting the command prefix!
-            return new ServiceCollection()
+            var services = new ServiceCollection()
                 .AddSingleton(_config)
                 .AddSingleton<DiscordSocketClient>()
                 .AddSingleton<CommandService>()
                 .AddSingleton<CommandHandler>()
-                .BuildServiceProvider();
+                .AddSingleton<LoggingService>()
+                .AddLogging(configure => configure.AddSerilog());
+
+            if (!string.IsNullOrEmpty(_logLevel)) 
+            {
+                switch (_logLevel.ToLower())
+                {
+                    case "info":
+                    {
+                        services.Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
+                        break;
+                    }
+                    case "error":
+                    {
+                        services.Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Error);
+                        break;
+                    } 
+                    case "debug":
+                    {
+                        services.Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Debug);
+                        break;
+                    } 
+                    default: 
+                    {
+                        services.Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Error);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                services.Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
+            }
+
+            var serviceProvider = services.BuildServiceProvider();
+            return serviceProvider;
         }
+        
     }
 }

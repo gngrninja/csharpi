@@ -6,6 +6,7 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace csharpi.Services
 {
@@ -16,6 +17,7 @@ namespace csharpi.Services
         private readonly CommandService _commands;
         private readonly DiscordSocketClient _client;
         private readonly IServiceProvider _services;
+        private readonly Microsoft.Extensions.Logging.ILogger _logger;
 
         public CommandHandler(IServiceProvider services)
         {
@@ -24,6 +26,7 @@ namespace csharpi.Services
             _config = services.GetRequiredService<IConfiguration>();
             _commands = services.GetRequiredService<CommandService>();
             _client = services.GetRequiredService<DiscordSocketClient>();
+            _logger = services.GetRequiredService<ILogger<CommandHandler>>();
             _services = services;
             
             // take action when we execute a command
@@ -76,7 +79,7 @@ namespace csharpi.Services
             // if a command isn't found, log that info to console and exit this method
             if (!command.IsSpecified)
             {
-                System.Console.WriteLine($"Command failed to execute for [{context.User.Username}] <-> [{result.ErrorReason}]!");
+                _logger.LogError($"Command failed to execute for [{context.User.Username}] <-> [{result.ErrorReason}]!");
                 return;
             }
                 
@@ -84,11 +87,10 @@ namespace csharpi.Services
             // log success to the console and exit this method
             if (result.IsSuccess)
             {
-                System.Console.WriteLine($"Command [{command.Value.Name}] executed for -> [{context.User.Username}]");
+                _logger.LogInformation($"Command [{command.Value.Name}] executed for [{context.User.Username}] on [{context.Guild.Name}]");
                 return;
             }
-                
-
+            
             // failure scenario, let's let the user know
             await context.Channel.SendMessageAsync($"Sorry, {context.User.Username}... something went wrong -> [{result}]!");
         }        
