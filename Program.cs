@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using csharpi.Services;
 using System.Linq;
 using Serilog;
+using csharpi.Database;
 
 namespace csharpi
 {
@@ -94,6 +95,7 @@ namespace csharpi
                 .AddSingleton<CommandService>()
                 .AddSingleton<CommandHandler>()
                 .AddSingleton<LoggingService>()
+                .AddDbContext<CsharpiEntities>() 
                 .AddLogging(configure => configure.AddSerilog());
 
             if (!string.IsNullOrEmpty(_logLevel)) 
