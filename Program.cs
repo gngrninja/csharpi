@@ -14,9 +14,11 @@ namespace csharpi
         private readonly DiscordSocketClient _client;
         private readonly IConfiguration _config;
 
-        static void Main(string[] args)
+        public static Task Main(string[] args) => new Program().MainAsync();
+
+        public async Task MainAsync(string[] args)
         {
-            new Program().MainAsync().GetAwaiter().GetResult();
+            
         }
 
         public Program()
@@ -24,10 +26,10 @@ namespace csharpi
             _client = new DiscordSocketClient();
 
             //Hook into log event and write it out to the console
-            _client.Log += LogAsync;
+            _client.Log += Log;
 
             //Hook into the client ready event
-            _client.Ready += ReadyAsync;
+            _client.Ready += Ready;
 
             //Hook into the message received event, this is how we handle the hello world example
             _client.MessageReceived += MessageReceivedAsync;
@@ -49,13 +51,13 @@ namespace csharpi
             await Task.Delay(-1);
         }
 
-        private Task LogAsync(LogMessage log)
+        private Task Log(LogMessage log)
         {
             Console.WriteLine(log.ToString());
             return Task.CompletedTask;
         }
 
-        private Task ReadyAsync()
+        private Task Ready()
         {
             Console.WriteLine($"Connected as -> [{_client.CurrentUser}] :)");
             return Task.CompletedTask;
